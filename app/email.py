@@ -126,6 +126,9 @@ Thank you for shopping with us.
                 <p style="margin:15px 0 0;font-size:13px;color:#9ca3af;">
                     © {settings.DEFAULT_FROM_EMAIL}
                 </p>
+                <p style="margin:15px 0 0;font-size:13px;color:#9ca3af;">
+                    <a href="https://www.jajisinnovation.com" style="color:#9ca3af;text-decoration:none;">Visit www.jajisinnovation.com to see more</a>
+                </p>
             </td>
         </tr>
 
