@@ -17,8 +17,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv("SECRET_KEY", "unsafe-development-key")
 
 
-DEBUG = os.getenv("DEBUG", "False") == "True"
- 
+# DEBUG = os.getenv("DEBUG", "False") == "True"
+DEBUG = True
 
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
@@ -96,21 +96,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'Jajis_project.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-
-
-
-# import dj_database_url
-
-# DATABASES = {
-#     "default": dj_database_url.config(
-#         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-#         conn_max_age=600,
-#         ssl_require=not DEBUG,
-#     )
-# }
 
 
 import dj_database_url
@@ -167,6 +153,10 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+
 
 MEDIA_URL = "/media/"
 
