@@ -1,4 +1,4 @@
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
 from django.conf import settings
 import logging
 
@@ -140,14 +140,14 @@ Thank you for shopping with us.
 """
 
     try:
-        send_mail(
+        msg = EmailMultiAlternatives(
             subject=subject,
-            message=text_message,
+            body=text_message,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email, settings.DEFAULT_FROM_EMAIL],
-            html_message=html_message,
-            fail_silently=False,
+            to=[user.email, settings.DEFAULT_FROM_EMAIL],
         )
+        msg.attach_alternative(html_message, "text/html")
+        msg.send(fail_silently=False)
         logger.info(f"Order confirmation email sent to {user.email} for order #{order.id}")
     except Exception as e:
         logger.error(f"Failed to send order confirmation email to {user.email}: {str(e)}", exc_info=True)
@@ -206,14 +206,14 @@ If you didn't request this, please ignore this email.
 """
 
     try:
-        send_mail(
+        msg = EmailMultiAlternatives(
             subject=subject,
-            message=text_message,
+            body=text_message,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            html_message=html_message,
-            fail_silently=False,
+            to=[user.email],
         )
+        msg.attach_alternative(html_message, "text/html")
+        msg.send(fail_silently=False)
         logger.info(f"Password reset OTP email sent to {user.email}")
     except Exception as e:
         logger.error(f"Failed to send password reset OTP email to {user.email}: {str(e)}", exc_info=True)
