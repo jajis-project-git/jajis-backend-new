@@ -174,16 +174,13 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Use whitenoise for serving static files in production
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-# Allow static files to be served even with DEBUG=False when using whitenoise
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-
-# Additional static dirs
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, "static"),
+    BASE_DIR / "static",
 ]
+
+
 
 
 
