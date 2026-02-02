@@ -227,14 +227,15 @@ JAZZMIN_SETTINGS = {
     "topmenu_links": [
         {"name": "Home", "url": "/", "permissions": ["auth.view_user"]},
         {"model": "auth.user"},
-        {"app": "myapp"},
+        {"app": "app"},
     ],
     "icons": {
         "auth": "fas fa-users-cog",
-        "myapp": "fas fa-graduation-cap",
+        "app": "fas fa-graduation-cap", 
     },
     "related_modal_active": True,
 }
+
 
 
 
