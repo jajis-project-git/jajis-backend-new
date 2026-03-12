@@ -1,0 +1,19 @@
+[33mcommit 58f29ce14561b4bf3cfbfeb75055677c5a33d4ad[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+Author: abhinavmabhi <dexmarketing192018@gmail.com>
+Date:   Mon Feb 2 17:00:41 2026 +0530
+
+    fixing static error
+
+[1mdiff --git a/Jajis_project/settings.py b/Jajis_project/settings.py[m
+[1mindex 6c359d1..d826b6a 100644[m
+[1m--- a/Jajis_project/settings.py[m
+[1m+++ b/Jajis_project/settings.py[m
+[36m@@ -177,7 +177,7 @@[m [mSTATIC_ROOT = BASE_DIR / "staticfiles"[m
+ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"[m
+ [m
+ STATICFILES_DIRS = [[m
+[31m-    BASE_DIR / "static",[m
+[32m+[m[32m    BASE_DIR / "static",  # empty folder is fine[m
+ ][m
+ [m
+ [m
