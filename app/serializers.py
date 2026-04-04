@@ -17,7 +17,16 @@ from .models import (
 class AbsoluteImageMixin:
     def get_abs_url(self, request, image):
         if image:
-            return request.build_absolute_uri(image.url) if request else image.url
+            url = image.url
+
+            # Apply Cloudinary optimization globally
+            if "/upload/" in url:
+                url = url.replace(
+                    "/upload/",
+                    "/upload/q_auto,f_auto,w_800,dpr_auto/"
+                )
+
+            return request.build_absolute_uri(url) if request else url
         return None
 
 
@@ -349,12 +358,16 @@ class OrderListSerializer(OrderSerializer):
             "items_count", "items",
             "shipping_address", "billing_address",
         ]
-
+        
     def get_first_product_image(self, obj):
         first_item = obj.items.first()
         if first_item:
-            return self.context.get("request").build_absolute_uri(first_item.variant.product.image1.url)
+            return self.get_abs_url(
+                self.context.get("request"),
+                first_item.variant.product.image1
+            )
         return None
+
 
     def get_first_product_title(self, obj):
         first_item = obj.items.first()
