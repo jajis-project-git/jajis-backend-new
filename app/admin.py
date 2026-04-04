@@ -147,6 +147,9 @@ class ProductAdmin(admin.ModelAdmin):
     readonly_fields = ("preview", "created_at", "updated_at")
     ordering = ("-created_at",)
     date_hierarchy = "created_at"
+    list_per_page = 25
+    list_max_show_all = 100
+    show_full_result_count = False
 
     fieldsets = (
         ("Product", {"fields": ("title", "category", "brand", "description")}),
@@ -254,6 +257,9 @@ class OrderAdmin(admin.ModelAdmin):
     autocomplete_fields = ("user", "shipping_address")
     readonly_fields = ("created_at", "updated_at", "shipping_address_full")
     ordering = ("-created_at",)
+    list_per_page = 25
+    list_max_show_all = 100
+    show_full_result_count = False
 
     fieldsets = (
         ("Order", {"fields": ("user", "status", "total_amount", "shipping_cost", "created_at", "updated_at")}),
