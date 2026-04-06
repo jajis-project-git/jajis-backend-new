@@ -4,6 +4,8 @@ from django.db import transaction
 from django.utils import timezone
 
 
+
+
 class BannerImage(models.Model):
     
     image = models.ImageField(upload_to="banner_image/",null=True,blank=True)
