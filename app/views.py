@@ -335,11 +335,20 @@ class UserProfileView(APIView):
 
 
 from django.db.models import Min, Q
+from django.core.cache import cache
+
 
 class ProductListAPIView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
+        # Create unique cache key based on filters
+        cache_key = f"products_{request.GET.urlencode()}"
+
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return Response(cached_data)
+
         category_name = request.GET.get("category")
         min_price = request.GET.get("min_price")
         max_price = request.GET.get("max_price")
@@ -347,7 +356,6 @@ class ProductListAPIView(APIView):
 
         products = Product.objects.all()
 
-        # 🔹 Category filter
         if category_name and category_name.lower() != "all":
             products = products.filter(category__name__iexact=category_name)
 
@@ -375,14 +383,14 @@ class ProductListAPIView(APIView):
         categories = Category.objects.all()
         category_serializer = CategorySerializer(categories, many=True)
 
-        return Response(
-            {
-                "products": serializer.data,
-                "categories": category_serializer.data,
-            },
-            status=status.HTTP_200_OK,
-        )
+        response_data = {
+            "products": serializer.data,
+            "categories": category_serializer.data,
+        }
 
+        cache.set(cache_key, response_data, timeout=300)
+
+        return Response(response_data)
 
 
 
@@ -391,14 +399,23 @@ class ProductDetailAPIView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, pk):
+        cache_key = f"product_{pk}"
+
+        cached_product = cache.get(cache_key)
+        if cached_product:
+            return Response(cached_product)
+
         try:
             product = Product.objects.get(pk=pk)
             serializer = ProductDetailSerializer(product, context={'request': request})
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Product.DoesNotExist:
-            return Response({"detail": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
-        
 
+            # Store in Redis
+            cache.set(cache_key, serializer.data, timeout=300)
+
+            return Response(serializer.data)
+
+        except Product.DoesNotExist:
+            return Response({"detail": "Product not found"}, status=404)
 
 
 class AddToCartView(APIView):

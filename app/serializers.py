@@ -10,9 +10,6 @@ from .models import (
     PaymentTransaction, PasswordResetOTP,
 )
 
-# ======================================================
-# COMMON IMAGE HELPER (DRY + SAFE)
-# ======================================================
 
 class AbsoluteImageMixin:
     def get_abs_url(self, request, image):
