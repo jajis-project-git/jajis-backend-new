@@ -2,13 +2,21 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
+from django.core.exceptions import ValidationError
+
+
+def validate_image_size(value):
+    """Validate that the image file size is not larger than 1MB."""
+    max_size = 1 * 1024 * 1024  # 1MB in bytes
+    if value.size > max_size:
+        raise ValidationError(f'Image file size must be no more than 1MB. Current size: {value.size / (1024*1024):.2f}MB')
 
 
 
 
 class BannerImage(models.Model):
     
-    image = models.ImageField(upload_to="banner_image/",null=True,blank=True)
+    image = models.ImageField(upload_to="banner_image/",null=True,blank=True, validators=[validate_image_size])
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -19,13 +27,13 @@ class Saloon(models.Model):
 
     name = models.CharField(max_length=200)
     description = models.TextField()
-    image = models.ImageField(upload_to='saloon_images/')
-    image1=models.ImageField(upload_to='saloon_images/',blank=True,null=True)
-    image2=models.ImageField(upload_to='saloon_images/',blank=True,null=True)
-    image3=models.ImageField(upload_to='saloon_images/',blank=True,null=True)
-    image4=models.ImageField(upload_to='saloon_images/',blank=True,null=True)
-    image5=models.ImageField(upload_to='saloon_images/',blank=True,null=True)
-    image6=models.ImageField(upload_to='saloon_images/',blank=True,null=True)
+    image = models.ImageField(upload_to='saloon_images/', validators=[validate_image_size])
+    image1=models.ImageField(upload_to='saloon_images/',blank=True,null=True, validators=[validate_image_size])
+    image2=models.ImageField(upload_to='saloon_images/',blank=True,null=True, validators=[validate_image_size])
+    image3=models.ImageField(upload_to='saloon_images/',blank=True,null=True, validators=[validate_image_size])
+    image4=models.ImageField(upload_to='saloon_images/',blank=True,null=True, validators=[validate_image_size])
+    image5=models.ImageField(upload_to='saloon_images/',blank=True,null=True, validators=[validate_image_size])
+    image6=models.ImageField(upload_to='saloon_images/',blank=True,null=True, validators=[validate_image_size])
     google_map_url=models.CharField(max_length=1000,null=True,blank=True)
     location = models.CharField(max_length=300)
 
@@ -41,7 +49,7 @@ class FoodMenu(models.Model):
 
     title = models.CharField(max_length=200)
     description = models.TextField()
-    image = models.ImageField(upload_to='food_images/')
+    image = models.ImageField(upload_to='food_images/', validators=[validate_image_size])
     price = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
@@ -56,7 +64,7 @@ class Cosmetics(models.Model):
 
     title = models.CharField(max_length=200)
     description = models.TextField()
-    image = models.ImageField(upload_to='cosmetics_images/')
+    image = models.ImageField(upload_to='cosmetics_images/', validators=[validate_image_size])
     price = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
@@ -69,7 +77,7 @@ class Cosmetics(models.Model):
 
 class Courses(models.Model):
 
-    image=models.ImageField(upload_to='courses/')
+    image=models.ImageField(upload_to='courses/', validators=[validate_image_size])
     course=models.CharField(max_length=100)
     duration=models.CharField(max_length=100)
     description=models.TextField()
@@ -98,10 +106,10 @@ class Product(models.Model):
     description = models.TextField()
     brand = models.CharField(max_length=100, blank=True, null=True,default="jajis")
 
-    image1 = models.ImageField(upload_to='product_images/')
-    image2 = models.ImageField(upload_to='product_images/', blank=True, null=True)
-    image3 = models.ImageField(upload_to='product_images/', blank=True, null=True)
-    image4 = models.ImageField(upload_to='product_images/', blank=True, null=True)
+    image1 = models.ImageField(upload_to='product_images/', validators=[validate_image_size])
+    image2 = models.ImageField(upload_to='product_images/', blank=True, null=True, validators=[validate_image_size])
+    image3 = models.ImageField(upload_to='product_images/', blank=True, null=True, validators=[validate_image_size])
+    image4 = models.ImageField(upload_to='product_images/', blank=True, null=True, validators=[validate_image_size])
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
