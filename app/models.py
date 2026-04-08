@@ -12,6 +12,28 @@ def validate_image_size(value):
         raise ValidationError(f'Image file size must be no more than 1MB. Current size: {value.size / (1024*1024):.2f}MB')
 
 
+from PIL import Image
+from io import BytesIO
+from django.core.files.base import ContentFile
+
+def compress_image(image, quality=70, max_width=1200):
+    img = Image.open(image)
+
+    # Convert RGBA → RGB (important for JPEG)
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+
+    # Resize (keeps aspect ratio)
+    if img.width > max_width:
+        ratio = max_width / float(img.width)
+        height = int((float(img.height) * float(ratio)))
+        img = img.resize((max_width, height), Image.LANCZOS)
+
+    buffer = BytesIO()
+    img.save(buffer, format='JPEG', quality=quality, optimize=True)
+
+    return ContentFile(buffer.getvalue(), name=image.name)
+
 
 
 class BannerImage(models.Model):
@@ -21,6 +43,7 @@ class BannerImage(models.Model):
 
     def __str__(self):
         return f"Image {self.id}"
+    
 
 
 class Saloon(models.Model):
@@ -106,16 +129,31 @@ class Product(models.Model):
     description = models.TextField()
     brand = models.CharField(max_length=100, blank=True, null=True,default="jajis")
 
-    image1 = models.ImageField(upload_to='product_images/', validators=[validate_image_size])
-    image2 = models.ImageField(upload_to='product_images/', blank=True, null=True, validators=[validate_image_size])
-    image3 = models.ImageField(upload_to='product_images/', blank=True, null=True, validators=[validate_image_size])
-    image4 = models.ImageField(upload_to='product_images/', blank=True, null=True, validators=[validate_image_size])
+    image1 = models.ImageField(upload_to='product_images/')
+    image2 = models.ImageField(upload_to='product_images/', blank=True, null=True)
+    image3 = models.ImageField(upload_to='product_images/', blank=True, null=True)
+    image4 = models.ImageField(upload_to='product_images/', blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.title
+    def save(self, *args, **kwargs):
+
+        if self.image1:
+            self.image1 = compress_image(self.image1)
+
+        if self.image2:
+            self.image2 = compress_image(self.image2)
+
+        if self.image3:
+            self.image3 = compress_image(self.image3)
+
+        if self.image4:
+            self.image4 = compress_image(self.image4)
+
+        super().save(*args, **kwargs)
 
 
 class ProductVariant(models.Model):
