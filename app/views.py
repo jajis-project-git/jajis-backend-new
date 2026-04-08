@@ -336,25 +336,28 @@ class UserProfileView(APIView):
 
 from django.db.models import Min, Q
 from django.core.cache import cache
-
+from urllib.parse import urlencode
 
 class ProductListAPIView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        # Create unique cache key based on filters
-        cache_key = f"products_{request.GET.urlencode()}"
+        #  FIXED: sorted params (stable key)
+        query_params = request.GET.dict()
+        sorted_params = dict(sorted(query_params.items()))
+        cache_key = f"products_{urlencode(sorted_params)}"
 
         cached_data = cache.get(cache_key)
         if cached_data:
             return Response(cached_data)
 
-        category_name = request.GET.get("category")
-        min_price = request.GET.get("min_price")
-        max_price = request.GET.get("max_price")
-        search = request.GET.get("search")
+        category_name = sorted_params.get("category")
+        min_price = sorted_params.get("min_price")
+        max_price = sorted_params.get("max_price")
+        search = sorted_params.get("search")
 
-        products = Product.objects.all()
+        #  OPTIMIZED QUERY
+        products = Product.objects.select_related("category").prefetch_related("variants")
 
         if category_name and category_name.lower() != "all":
             products = products.filter(category__name__iexact=category_name)
@@ -388,10 +391,10 @@ class ProductListAPIView(APIView):
             "categories": category_serializer.data,
         }
 
+        #  Cache for 5 mins
         cache.set(cache_key, response_data, timeout=300)
 
         return Response(response_data)
-
 
 
 
