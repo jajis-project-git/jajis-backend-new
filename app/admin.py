@@ -8,7 +8,7 @@ from .models import (
     BannerImage, Saloon, FoodMenu, Cosmetics, Courses,
     Category, Product, ProductVariant,
     Cart, CartItem, Wishlist, WishlistItem,
-    Address, Order, OrderItem, PaymentTransaction
+    Address, Order, OrderItem, PaymentTransaction, Eventhall
 )
 
 
@@ -285,3 +285,14 @@ class OrderAdmin(admin.ModelAdmin):
         tx = PaymentTransaction.objects.filter(order=obj).order_by("-created_at").first()
         return tx.razorpay_order_id if tx else "-"
     razorpay_order_id.short_description = "RZP Order ID"
+
+
+@admin.register(Eventhall)
+class EventhallAdmin(admin.ModelAdmin):
+    list_display = ("id", "name", "phone", "email", "event_type", "category", "event_date", "created_at")
+    list_filter = ("event_type", "category", "event_date")
+    search_fields = ("name", "phone", "email")
+    date_hierarchy = "event_date"
+    ordering = ("-created_at",)
+
+

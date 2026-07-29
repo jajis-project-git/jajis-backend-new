@@ -7,7 +7,7 @@ from .models import (
     BannerImage, Cosmetics, Saloon, FoodMenu, Courses,
     Product, ProductVariant, Category, Cart, CartItem,
     Wishlist, WishlistItem, Address, Order, OrderItem,
-    PaymentTransaction, PasswordResetOTP,
+    PaymentTransaction, PasswordResetOTP, Eventhall,
 )
 
 
@@ -360,3 +360,30 @@ class OrderListSerializer(OrderSerializer):
 
     def get_items_count(self, obj):
         return obj.items.count()
+
+
+class EventhallSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Eventhall
+        fields = [
+            "id", "name", "phone", "email",
+            "event_type", "category", "event_date",
+            "created_at"
+        ]
+        read_only_fields = ["id", "created_at"]
+
+    def validate_event_date(self, value):
+        from datetime import date
+        if value < date.today():
+            raise serializers.ValidationError("Booking date cannot be in the past.")
+
+        already_booked = Eventhall.objects.filter(
+            event_date=value
+        ).exists()
+
+        if already_booked:
+            raise serializers.ValidationError("This date is already booked. Please select another date.")
+
+        return value
+
+

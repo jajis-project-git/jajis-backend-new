@@ -1,8 +1,8 @@
 # views.py
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from .models import BannerImage,Saloon,FoodMenu,Courses,Cart,CartItem,Category,Product,ProductVariant,Wishlist,WishlistItem,PasswordResetOTP
-from .serializers import BannerImageSerializer,SaloonSerializer,FoodMenuSerializer,CourseSerializer,CartItemSerializer,CartSerializer
+from .models import BannerImage,Saloon,FoodMenu,Courses,Cart,CartItem,Category,Product,ProductVariant,Wishlist,WishlistItem,PasswordResetOTP,Eventhall
+from .serializers import BannerImageSerializer,SaloonSerializer,FoodMenuSerializer,CourseSerializer,CartItemSerializer,CartSerializer,EventhallSerializer
 
 from rest_framework import permissions
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -30,7 +30,7 @@ from django.db import transaction
 from django.conf import settings
 import razorpay
 from django.shortcuts import get_object_or_404
-from .email import send_password_reset_otp_email
+from .email import send_password_reset_otp_email, send_event_hall_user_email, send_event_hall_admin_email
 from django.utils import timezone
 from datetime import timedelta
 import random
@@ -838,5 +838,43 @@ class OrderDetailView(APIView):
         order = get_object_or_404(Order, pk=pk, user=request.user)
         serializer = OrderSerializer(order, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ---------------- Event Hall -----------------
+
+class EventhallBookingView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        bookings = Eventhall.objects.all()
+        serializer = EventhallSerializer(bookings, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = EventhallSerializer(data=request.data)
+        if serializer.is_valid():
+            event_hall = serializer.save()
+
+            # Send emails to user and admin
+            send_event_hall_user_email(event_hall)
+            send_event_hall_admin_email(event_hall)
+
+            return Response({
+                "message": "Event hall booking enquiry submitted successfully.",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EventhallBookedDatesView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        booked_events = Eventhall.objects.all()
+        booked_dates = [event.event_date.strftime('%Y-%m-%d') for event in booked_events if event.event_date]
+        booked_dates = sorted(list(set(booked_dates)))
+        return Response({"booked_dates": booked_dates}, status=status.HTTP_200_OK)
+
 
 

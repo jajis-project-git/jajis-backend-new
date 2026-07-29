@@ -312,3 +312,34 @@ class PasswordResetOTP(models.Model):
     class Meta:
         verbose_name = "Password Reset OTP"
         verbose_name_plural = "Password Reset OTPs"
+
+
+class Eventhall(models.Model):
+    name = models.CharField(max_length=200)
+    phone = models.CharField(max_length=20)
+    email = models.EmailField()
+    type_choice = [
+        ('wedding', 'Wedding'),
+        ('reception', 'Reception'),
+        ('birthday', 'Birthday'),
+        ('corporate', 'Corporate'),
+        ('other', 'Other'),
+    ]
+    category_choice = [
+        ('ac', 'AC'),
+        ('non-ac', 'Non-AC')
+    ]
+    
+    event_type = models.CharField(max_length=100, choices=type_choice)
+    category = models.CharField(max_length=100, choices=category_choice)
+    event_date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Event Hall Booking"
+        verbose_name_plural = "Event Hall Bookings"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} - {self.event_type} on {self.event_date}"
+

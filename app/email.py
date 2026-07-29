@@ -220,3 +220,179 @@ If you didn't request this, please ignore this email.
         logger.info(f"Password reset OTP email sent to {user.email}")
     except Exception as e:
         logger.error(f"Failed to send password reset OTP email to {user.email}: {str(e)}", exc_info=True)
+
+
+def send_event_hall_user_email(event_hall):
+    subject = "Event Hall Booking Request Received - Jaji's"
+    event_type_label = dict(event_hall.type_choice).get(event_hall.event_type, event_hall.event_type)
+    category_label = dict(event_hall.category_choice).get(event_hall.category, event_hall.category)
+    date_str = event_hall.event_date.strftime("%B %d, %Y") if hasattr(event_hall.event_date, 'strftime') else str(event_hall.event_date)
+
+    text_message = f"""
+Hello {event_hall.name},
+
+Thank you for your interest in Jaji's Event Hall! We have received your booking enquiry.
+
+Here are your submitted details:
+- Name: {event_hall.name}
+- Phone: {event_hall.phone}
+- Email: {event_hall.email}
+- Event Type: {event_type_label}
+- Category: {category_label}
+- Requested Event Date: {date_str}
+
+Our team will review your request and get in touch with you soon to confirm your booking.
+
+Best regards,
+Jaji's Team
+"""
+
+    html_message = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Event Hall Booking Request Received</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,Helvetica,sans-serif;">
+
+<table width="100%" cellpadding="0" cellspacing="0">
+<tr>
+<td align="center" style="padding:40px 15px;">
+
+    <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:30px;box-shadow:0 10px 30px rgba(0,0,0,0.08);">
+        <tr>
+            <td style="text-align:center;padding-bottom:20px;">
+                <h1 style="margin:0;font-size:24px;color:#111827;">Booking Enquiry Received 🎉</h1>
+                <p style="margin:8px 0 0;color:#6b7280;">Thank you for reaching out to Jaji's Event Hall</p>
+            </td>
+        </tr>
+        <tr><td style="border-top:1px solid #e5e7eb;"></td></tr>
+        <tr>
+            <td style="padding:25px 0;">
+                <h3 style="margin:0 0 15px;color:#111827;">Enquiry Details</h3>
+                <table width="100%" style="border-collapse:collapse;font-size:14px;color:#374151;">
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 0;"><strong>Name:</strong></td><td align="right">{event_hall.name}</td></tr>
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 0;"><strong>Phone:</strong></td><td align="right">{event_hall.phone}</td></tr>
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 0;"><strong>Email:</strong></td><td align="right">{event_hall.email}</td></tr>
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 0;"><strong>Event Type:</strong></td><td align="right">{event_type_label}</td></tr>
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 0;"><strong>Category:</strong></td><td align="right">{category_label}</td></tr>
+                    <tr><td style="padding:8px 0;"><strong>Requested Event Date:</strong></td><td align="right" style="color:#2563eb;font-weight:bold;">{date_str}</td></tr>
+                </table>
+            </td>
+        </tr>
+        <tr><td style="border-top:1px solid #e5e7eb;"></td></tr>
+        <tr>
+            <td style="padding-top:25px;text-align:center;color:#6b7280;font-size:14px;">
+                <p style="margin:0;">Our event coordinator will contact you shortly to confirm the availability and discuss details.</p>
+                <p style="margin:15px 0 0;font-size:13px;color:#9ca3af;">© Jaji's Innovation</p>
+            </td>
+        </tr>
+    </table>
+
+</td>
+</tr>
+</table>
+
+</body>
+</html>
+"""
+
+    try:
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=text_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[event_hall.email],
+        )
+        msg.attach_alternative(html_message, "text/html")
+        msg.send(fail_silently=False)
+        logger.info(f"Event hall confirmation email sent to user {event_hall.email}")
+    except Exception as e:
+        logger.error(f"Failed to send event hall email to user {event_hall.email}: {str(e)}", exc_info=True)
+
+
+def send_event_hall_admin_email(event_hall):
+    admin_email = "managingdirector@jajis.in"
+    subject = f"New Event Hall Booking Enquiry - {event_hall.name}"
+    event_type_label = dict(event_hall.type_choice).get(event_hall.event_type, event_hall.event_type)
+    category_label = dict(event_hall.category_choice).get(event_hall.category, event_hall.category)
+    date_str = event_hall.event_date.strftime("%B %d, %Y") if hasattr(event_hall.event_date, 'strftime') else str(event_hall.event_date)
+
+    text_message = f"""
+New Event Hall Booking Enquiry Received!
+
+Details:
+- Customer Name: {event_hall.name}
+- Phone: {event_hall.phone}
+- Email: {event_hall.email}
+- Event Type: {event_type_label}
+- Category: {category_label}
+- Event Date: {date_str}
+
+Please log in to the admin panel to review and manage this lead.
+"""
+
+    html_message = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>New Event Hall Enquiry</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,Helvetica,sans-serif;">
+
+<table width="100%" cellpadding="0" cellspacing="0">
+<tr>
+<td align="center" style="padding:40px 15px;">
+
+    <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:30px;box-shadow:0 10px 30px rgba(0,0,0,0.08);">
+        <tr>
+            <td style="text-align:center;padding-bottom:20px;">
+                <h1 style="margin:0;font-size:24px;color:#111827;">New Event Hall Lead 📩</h1>
+                <p style="margin:8px 0 0;color:#6b7280;">Enquiry submitted on website</p>
+            </td>
+        </tr>
+        <tr><td style="border-top:1px solid #e5e7eb;"></td></tr>
+        <tr>
+            <td style="padding:25px 0;">
+                <h3 style="margin:0 0 15px;color:#111827;">Customer & Booking Details</h3>
+                <table width="100%" style="border-collapse:collapse;font-size:14px;color:#374151;">
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 0;"><strong>Customer Name:</strong></td><td align="right">{event_hall.name}</td></tr>
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 0;"><strong>Phone Number:</strong></td><td align="right"><a href="tel:{event_hall.phone}" style="color:#2563eb;">{event_hall.phone}</a></td></tr>
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 0;"><strong>Email Address:</strong></td><td align="right"><a href="mailto:{event_hall.email}" style="color:#2563eb;">{event_hall.email}</a></td></tr>
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 0;"><strong>Event Type:</strong></td><td align="right">{event_type_label}</td></tr>
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 0;"><strong>Category:</strong></td><td align="right">{category_label}</td></tr>
+                    <tr><td style="padding:8px 0;"><strong>Requested Event Date:</strong></td><td align="right" style="color:#dc2626;font-weight:bold;">{date_str}</td></tr>
+                </table>
+            </td>
+        </tr>
+        <tr><td style="border-top:1px solid #e5e7eb;"></td></tr>
+        <tr>
+            <td style="padding-top:25px;text-align:center;color:#6b7280;font-size:14px;">
+                <p style="margin:0;">This lead is saved in the e-commerce admin panel.</p>
+            </td>
+        </tr>
+    </table>
+
+</td>
+</tr>
+</table>
+
+</body>
+</html>
+"""
+
+    try:
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=text_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[admin_email],
+        )
+        msg.attach_alternative(html_message, "text/html")
+        msg.send(fail_silently=False)
+        logger.info(f"Event hall admin notification email sent to {admin_email}")
+    except Exception as e:
+        logger.error(f"Failed to send event hall email to admin {admin_email}: {str(e)}", exc_info=True)
+
