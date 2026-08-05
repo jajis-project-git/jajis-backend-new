@@ -112,8 +112,13 @@ DATABASES = {
 
 # REDIS CONFIGURATION
 
+_raw_redis_url = os.getenv("REDIS_URL", "")
 
-REDIS_URL = os.getenv("REDIS_URL")
+# Railway may provide the URL without a scheme; ensure it has one
+if _raw_redis_url and not _raw_redis_url.startswith(("redis://", "rediss://")):
+    REDIS_URL = f"redis://{_raw_redis_url}"
+else:
+    REDIS_URL = _raw_redis_url
 
 CACHES = {
     "default": {
@@ -121,7 +126,15 @@ CACHES = {
         "LOCATION": REDIS_URL,
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        }
+            "CONNECTION_POOL_KWARGS": {
+                "max_connections": 20,
+                "retry_on_timeout": True,
+            },
+            "SOCKET_CONNECT_TIMEOUT": 5,
+            "SOCKET_TIMEOUT": 5,
+            "IGNORE_EXCEPTIONS": False,
+        },
+        "KEY_PREFIX": "jajis",
     }
 }
 
