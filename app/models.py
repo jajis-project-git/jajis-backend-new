@@ -342,4 +342,44 @@ class Eventhall(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.event_type} on {self.event_date}"
+
+
+class FranchiseEnquiry(models.Model):
+    full_name = models.CharField(max_length=200)
+    mobile_number = models.CharField(max_length=20)
+    whatsapp_number = models.CharField(max_length=20, blank=True, null=True)
+    email = models.EmailField()
+    age_group = models.CharField(max_length=50)
+    current_city_district = models.CharField(max_length=200)
+    state = models.CharField(max_length=100)
+    
+    occupation = models.CharField(max_length=200)
+    has_business_exp = models.CharField(max_length=20)
+    business_exp_details = models.TextField(blank=True, null=True)
+    has_salon_exp = models.CharField(max_length=20)
+    applicant_type = models.CharField(max_length=100)
+
+    preferred_city = models.CharField(max_length=100)
+    preferred_area = models.CharField(max_length=150)
+    has_commercial_property = models.CharField(max_length=100)
+    property_size = models.CharField(max_length=100, blank=True, null=True)
+    property_location_link = models.CharField(max_length=500, blank=True, null=True)
+
+    investment_budget = models.CharField(max_length=100)
+    investment_source = models.CharField(max_length=100)
+    plan_to_start = models.CharField(max_length=100)
+    daily_operations_involvement = models.CharField(max_length=100)
+
+    confirm_accurate = models.BooleanField(default=True)
+    agree_contact = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Franchise Enquiry"
+        verbose_name_plural = "Franchise Enquiries"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.full_name} - {self.preferred_city} ({self.created_at.strftime('%Y-%m-%d') if self.created_at else ''})"
+
 

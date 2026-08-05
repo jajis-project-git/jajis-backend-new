@@ -1,8 +1,8 @@
 # views.py
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from .models import BannerImage,Saloon,FoodMenu,Courses,Cart,CartItem,Category,Product,ProductVariant,Wishlist,WishlistItem,PasswordResetOTP,Eventhall
-from .serializers import BannerImageSerializer,SaloonSerializer,FoodMenuSerializer,CourseSerializer,CartItemSerializer,CartSerializer,EventhallSerializer
+from .models import BannerImage,Saloon,FoodMenu,Courses,Cart,CartItem,Category,Product,ProductVariant,Wishlist,WishlistItem,PasswordResetOTP,Eventhall,FranchiseEnquiry
+from .serializers import BannerImageSerializer,SaloonSerializer,FoodMenuSerializer,CourseSerializer,CartItemSerializer,CartSerializer,EventhallSerializer,FranchiseEnquirySerializer
 
 from rest_framework import permissions
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -30,7 +30,7 @@ from django.db import transaction
 from django.conf import settings
 import razorpay
 from django.shortcuts import get_object_or_404
-from .email import send_password_reset_otp_email, send_event_hall_user_email, send_event_hall_admin_email
+from .email import send_password_reset_otp_email, send_event_hall_user_email, send_event_hall_admin_email, send_franchise_user_email, send_franchise_admin_email
 from django.utils import timezone
 from datetime import timedelta
 import random
@@ -151,14 +151,36 @@ class designing_view(APIView):
         })
 
 
-class franchise_view(APIView):
+class FranchiseEnquiryView(APIView):
+    authentication_classes = []
     permission_classes = [AllowAny]
 
     def get(self, request):
+        enquiries = FranchiseEnquiry.objects.all()
+        serializer = FranchiseEnquirySerializer(enquiries, many=True)
         return Response({
             "page": "Franchise",
-            "content": "This is the Franchise page."
-        })
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = FranchiseEnquirySerializer(data=request.data)
+        if serializer.is_valid():
+            enquiry = serializer.save()
+
+            # Send confirmation email to applicant and lead email to admin
+            send_franchise_user_email(enquiry)
+            send_franchise_admin_email(enquiry)
+
+            return Response({
+                "message": "Franchise enquiry submitted successfully.",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+franchise_view = FranchiseEnquiryView
 
 
 class about_us_view(APIView):
@@ -843,6 +865,7 @@ class OrderDetailView(APIView):
 # ---------------- Event Hall -----------------
 
 class EventhallBookingView(APIView):
+    authentication_classes = []
     permission_classes = [AllowAny]
 
     def get(self, request):
@@ -868,6 +891,7 @@ class EventhallBookingView(APIView):
 
 
 class EventhallBookedDatesView(APIView):
+    authentication_classes = []
     permission_classes = [AllowAny]
 
     def get(self, request):

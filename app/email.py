@@ -396,3 +396,236 @@ Please log in to the admin panel to review and manage this lead.
     except Exception as e:
         logger.error(f"Failed to send event hall email to admin {admin_email}: {str(e)}", exc_info=True)
 
+
+def send_franchise_user_email(enquiry):
+    subject = "Thank You for Your Jaji’s Franchise Enquiry"
+
+    text_message = f"""
+Dear {enquiry.full_name},
+
+Thank you for your interest in becoming a Jaji’s franchise partner.
+
+Our franchise development team will review your application details for {enquiry.preferred_city} and contact shortlisted applicants for an initial discussion.
+
+Submission of this form does not constitute a franchise agreement or guarantee franchise approval.
+
+Best regards,
+Jaji’s Innovation Pvt. Ltd.
+www.jajisinnovation.com
+"""
+
+    html_message = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Franchise Enquiry Confirmation</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,Helvetica,sans-serif;">
+
+<table width="100%" cellpadding="0" cellspacing="0">
+<tr>
+<td align="center" style="padding:40px 15px;">
+
+    <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:30px;box-shadow:0 10px 30px rgba(0,0,0,0.08);">
+        <tr>
+            <td style="text-align:center;padding-bottom:20px;">
+                <h1 style="margin:0;font-size:24px;color:#111827;">Thank You for Your Enquiry! ✨</h1>
+                <p style="margin:8px 0 0;color:#6b7280;">Jaji’s Official Partner Program</p>
+            </td>
+        </tr>
+        <tr><td style="border-top:1px solid #e5e7eb;"></td></tr>
+        <tr>
+            <td style="padding:25px 0;">
+                <p style="margin:0 0 15px;color:#374151;font-size:15px;line-height:1.6;">
+                    Dear <strong>{enquiry.full_name}</strong>,
+                </p>
+                <p style="margin:0 0 15px;color:#374151;font-size:15px;line-height:1.6;">
+                    Thank you for expressing your interest in joining the Jaji’s franchise network. We have received your application for <strong>{enquiry.preferred_city}, {enquiry.state}</strong>.
+                </p>
+                <p style="margin:0 0 15px;color:#374151;font-size:15px;line-height:1.6;">
+                    Our franchise development team will review your application details and reach out to shortlisted applicants for an initial discussion.
+                </p>
+            </td>
+        </tr>
+        <tr><td style="border-top:1px solid #e5e7eb;"></td></tr>
+        <tr>
+            <td style="padding-top:25px;text-align:center;color:#6b7280;font-size:13px;">
+                <p style="margin:0;font-weight:bold;color:#111827;">Jaji’s Innovation Pvt. Ltd.</p>
+                <p style="margin:4px 0 0;">Growing together. Creating successful beauty businesses.</p>
+                <p style="margin:12px 0 0;">
+                    <a href="https://www.jajisinnovation.com" style="color:#2563eb;text-decoration:none;">www.jajisinnovation.com</a>
+                </p>
+            </td>
+        </tr>
+    </table>
+
+</td>
+</tr>
+</table>
+
+</body>
+</html>
+"""
+
+    try:
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=text_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[enquiry.email],
+        )
+        msg.attach_alternative(html_message, "text/html")
+        msg.send(fail_silently=False)
+        logger.info(f"Franchise confirmation email sent to user {enquiry.email}")
+    except Exception as e:
+        logger.error(f"Failed to send franchise email to user {enquiry.email}: {str(e)}", exc_info=True)
+
+
+def send_franchise_admin_email(enquiry):
+    admin_email = "managingdirector@jajis.in"
+    subject = f"New Franchise Partner Enquiry - {enquiry.full_name} ({enquiry.preferred_city})"
+
+    text_message = f"""
+New Franchise Partner Enquiry Received!
+
+Personal Details:
+- Full Name: {enquiry.full_name}
+- Mobile Number: {enquiry.mobile_number}
+- WhatsApp Number: {enquiry.whatsapp_number or 'N/A'}
+- Email: {enquiry.email}
+- Age Group: {enquiry.age_group}
+- Current Location: {enquiry.current_city_district}, {enquiry.state}
+
+Business Information:
+- Current Occupation: {enquiry.occupation}
+- Previous Business Exp: {enquiry.has_business_exp}
+- Business Exp Details: {enquiry.business_exp_details or 'N/A'}
+- Salon/Beauty Industry Exp: {enquiry.has_salon_exp}
+- Applicant Type: {enquiry.applicant_type}
+
+Proposed Location:
+- Preferred City/Town: {enquiry.preferred_city}
+- Preferred Area: {enquiry.preferred_area}
+- Commercial Property Status: {enquiry.has_commercial_property}
+- Property Size: {enquiry.property_size or 'N/A'}
+- Property Map Link: {enquiry.property_location_link or 'N/A'}
+
+Investment Details:
+- Available Budget: {enquiry.investment_budget}
+- Investment Source: {enquiry.investment_source}
+- Start Timeline: {enquiry.plan_to_start}
+- Daily Operations Involvement: {enquiry.daily_operations_involvement}
+"""
+
+    html_message = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>New Franchise Enquiry</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,Helvetica,sans-serif;">
+
+<table width="100%" cellpadding="0" cellspacing="0">
+<tr>
+<td align="center" style="padding:40px 15px;">
+
+    <table width="650" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:30px;box-shadow:0 10px 30px rgba(0,0,0,0.08);">
+        <tr>
+            <td style="text-align:center;padding-bottom:20px;">
+                <h1 style="margin:0;font-size:24px;color:#111827;">New Franchise Lead 🤝</h1>
+                <p style="margin:8px 0 0;color:#6b7280;">Enquiry submitted on website</p>
+            </td>
+        </tr>
+        <tr><td style="border-top:1px solid #e5e7eb;"></td></tr>
+
+        <!-- Personal Details -->
+        <tr>
+            <td style="padding:20px 0;">
+                <h3 style="margin:0 0 12px;color:#111827;font-size:16px;">1. Personal Details</h3>
+                <table width="100%" style="border-collapse:collapse;font-size:14px;color:#374151;">
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 0;"><strong>Full Name:</strong></td><td align="right">{enquiry.full_name}</td></tr>
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 0;"><strong>Mobile:</strong></td><td align="right"><a href="tel:{enquiry.mobile_number}" style="color:#2563eb;">{enquiry.mobile_number}</a></td></tr>
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 0;"><strong>WhatsApp:</strong></td><td align="right">{enquiry.whatsapp_number or 'N/A'}</td></tr>
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 0;"><strong>Email:</strong></td><td align="right"><a href="mailto:{enquiry.email}" style="color:#2563eb;">{enquiry.email}</a></td></tr>
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 0;"><strong>Age Group:</strong></td><td align="right">{enquiry.age_group}</td></tr>
+                    <tr><td style="padding:6px 0;"><strong>Current City & State:</strong></td><td align="right">{enquiry.current_city_district}, {enquiry.state}</td></tr>
+                </table>
+            </td>
+        </tr>
+        <tr><td style="border-top:1px solid #e5e7eb;"></td></tr>
+
+        <!-- Business Info -->
+        <tr>
+            <td style="padding:20px 0;">
+                <h3 style="margin:0 0 12px;color:#111827;font-size:16px;">2. Business Information</h3>
+                <table width="100%" style="border-collapse:collapse;font-size:14px;color:#374151;">
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 0;"><strong>Current Occupation:</strong></td><td align="right">{enquiry.occupation}</td></tr>
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 0;"><strong>Business Experience:</strong></td><td align="right">{enquiry.has_business_exp}</td></tr>
+                    {"<tr style='border-bottom:1px solid #f3f4f6;'><td style='padding:6px 0;'><strong>Business Details:</strong></td><td align='right'>" + enquiry.business_exp_details + "</td></tr>" if enquiry.business_exp_details else ""}
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 0;"><strong>Salon/Beauty Exp:</strong></td><td align="right">{enquiry.has_salon_exp}</td></tr>
+                    <tr><td style="padding:6px 0;"><strong>Applicant Type:</strong></td><td align="right">{enquiry.applicant_type}</td></tr>
+                </table>
+            </td>
+        </tr>
+        <tr><td style="border-top:1px solid #e5e7eb;"></td></tr>
+
+        <!-- Location -->
+        <tr>
+            <td style="padding:20px 0;">
+                <h3 style="margin:0 0 12px;color:#111827;font-size:16px;">3. Proposed Franchise Location</h3>
+                <table width="100%" style="border-collapse:collapse;font-size:14px;color:#374151;">
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 0;"><strong>Preferred City:</strong></td><td align="right" style="font-weight:bold;color:#111827;">{enquiry.preferred_city}</td></tr>
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 0;"><strong>Preferred Area:</strong></td><td align="right">{enquiry.preferred_area}</td></tr>
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 0;"><strong>Commercial Property:</strong></td><td align="right">{enquiry.has_commercial_property}</td></tr>
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 0;"><strong>Property Size:</strong></td><td align="right">{enquiry.property_size or 'N/A'}</td></tr>
+                    {"<tr><td style='padding:6px 0;'><strong>Location Link:</strong></td><td align='right'><a href='" + enquiry.property_location_link + "' style='color:#2563eb;'>View Link</a></td></tr>" if enquiry.property_location_link else ""}
+                </table>
+            </td>
+        </tr>
+        <tr><td style="border-top:1px solid #e5e7eb;"></td></tr>
+
+        <!-- Investment -->
+        <tr>
+            <td style="padding:20px 0;">
+                <h3 style="margin:0 0 12px;color:#111827;font-size:16px;">4. Investment Details</h3>
+                <table width="100%" style="border-collapse:collapse;font-size:14px;color:#374151;">
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 0;"><strong>Investment Budget:</strong></td><td align="right" style="color:#16a34a;font-weight:bold;">{enquiry.investment_budget}</td></tr>
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 0;"><strong>Source of Funds:</strong></td><td align="right">{enquiry.investment_source}</td></tr>
+                    <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 0;"><strong>Start Timeline:</strong></td><td align="right">{enquiry.plan_to_start}</td></tr>
+                    <tr><td style="padding:6px 0;"><strong>Daily Involvement:</strong></td><td align="right">{enquiry.daily_operations_involvement}</td></tr>
+                </table>
+            </td>
+        </tr>
+        <tr><td style="border-top:1px solid #e5e7eb;"></td></tr>
+
+        <tr>
+            <td style="padding-top:20px;text-align:center;color:#6b7280;font-size:13px;">
+                <p style="margin:0;">This lead is registered in the Jaji’s admin system.</p>
+            </td>
+        </tr>
+    </table>
+
+</td>
+</tr>
+</table>
+
+</body>
+</html>
+"""
+
+    try:
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=text_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[admin_email],
+        )
+        msg.attach_alternative(html_message, "text/html")
+        msg.send(fail_silently=False)
+        logger.info(f"Franchise admin notification email sent to {admin_email}")
+    except Exception as e:
+        logger.error(f"Failed to send franchise email to admin {admin_email}: {str(e)}", exc_info=True)
+
+

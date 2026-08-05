@@ -8,7 +8,7 @@ from .models import (
     BannerImage, Saloon, FoodMenu, Cosmetics, Courses,
     Category, Product, ProductVariant,
     Cart, CartItem, Wishlist, WishlistItem,
-    Address, Order, OrderItem, PaymentTransaction, Eventhall
+    Address, Order, OrderItem, PaymentTransaction, Eventhall, FranchiseEnquiry
 )
 
 
@@ -294,5 +294,17 @@ class EventhallAdmin(admin.ModelAdmin):
     search_fields = ("name", "phone", "email")
     date_hierarchy = "event_date"
     ordering = ("-created_at",)
+
+
+@admin.register(FranchiseEnquiry)
+class FranchiseEnquiryAdmin(admin.ModelAdmin):
+    list_display = (
+        "id", "full_name", "mobile_number", "email",
+        "preferred_city", "investment_budget", "plan_to_start", "created_at"
+    )
+    list_filter = ("preferred_city", "investment_budget", "plan_to_start", "applicant_type", "state")
+    search_fields = ("full_name", "mobile_number", "email", "preferred_city", "preferred_area")
+    ordering = ("-created_at",)
+
 
 

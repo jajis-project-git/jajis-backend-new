@@ -7,7 +7,7 @@ from .models import (
     BannerImage, Cosmetics, Saloon, FoodMenu, Courses,
     Product, ProductVariant, Category, Cart, CartItem,
     Wishlist, WishlistItem, Address, Order, OrderItem,
-    PaymentTransaction, PasswordResetOTP, Eventhall,
+    PaymentTransaction, PasswordResetOTP, Eventhall, FranchiseEnquiry
 )
 
 
@@ -385,5 +385,13 @@ class EventhallSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("This date is already booked. Please select another date.")
 
         return value
+
+
+class FranchiseEnquirySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FranchiseEnquiry
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
 
 
