@@ -289,6 +289,39 @@ class OrderAdmin(admin.ModelAdmin):
         return tx.razorpay_order_id if tx else "-"
     razorpay_order_id.short_description = "RZP Order ID"
 
+    actions = ["sync_razorpay_payment_status"]
+
+    def sync_razorpay_payment_status(self, request, queryset):
+        from app.views import sync_order_razorpay_status
+        updated = 0
+        for order in queryset:
+            if sync_order_razorpay_status(order):
+                updated += 1
+        self.message_user(
+            request,
+            f"Successfully checked Razorpay: {updated} order(s) updated to Paid/Confirmed."
+        )
+    sync_razorpay_payment_status.short_description = "🔄 Check & Sync Razorpay Payment Status"
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        from app.views import sync_order_razorpay_status
+        from django.utils import timezone
+        from datetime import timedelta
+        # Automatically sync recently created unpaid razorpay orders (last 7 days)
+        cutoff = timezone.now() - timedelta(days=7)
+        unpaid_orders = Order.objects.filter(
+            created_at__gte=cutoff,
+            payment_status="unpaid",
+            payment_method="razorpay",
+        )[:10]
+        for order in unpaid_orders:
+            try:
+                sync_order_razorpay_status(order)
+            except Exception:
+                pass
+        return qs
+
 
 
 

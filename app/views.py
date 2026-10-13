@@ -682,6 +682,68 @@ class AddressDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+def sync_order_razorpay_status(order):
+    """
+    Checks Razorpay API to see if a pending/unpaid order was actually paid.
+    If paid, updates Order to confirmed/paid, deducts stock, clears user cart,
+    and updates PaymentTransaction.
+    """
+    if order.payment_status == "paid":
+        return True
+
+    rzp_order_id = None
+    if order.transaction_id and order.transaction_id.startswith("order_"):
+        rzp_order_id = order.transaction_id
+    else:
+        tx = PaymentTransaction.objects.filter(order=order).first()
+        if tx and tx.razorpay_order_id:
+            rzp_order_id = tx.razorpay_order_id
+
+    if not rzp_order_id:
+        return False
+
+    try:
+        client = razorpay.Client(
+            auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+        )
+        payments_data = client.order.payments(rzp_order_id)
+        for p in payments_data.get("items", []):
+            if p.get("status") == "captured" or p.get("captured") is True:
+                payment_id = p.get("id")
+                order.payment_status = "paid"
+                order.status = "confirmed"
+                order.transaction_id = payment_id
+                order.save(update_fields=["payment_status", "status", "transaction_id"])
+
+                # Deduct stock
+                for item in order.items.select_related("variant"):
+                    item.variant.stock = max(0, item.variant.stock - item.quantity)
+                    item.variant.save(update_fields=["stock"])
+
+                # Clear cart
+                cart = Cart.objects.filter(user=order.user).first()
+                if cart:
+                    cart.items.all().delete()
+
+                # Update transaction
+                tx = PaymentTransaction.objects.filter(razorpay_order_id=rzp_order_id).first()
+                if tx:
+                    tx.status = "success"
+                    tx.razorpay_payment_id = payment_id
+                    tx.order = order
+                    tx.save()
+
+                try:
+                    send_order_success_email(order.user, order, order.items.all())
+                except Exception:
+                    pass
+
+                return True
+    except Exception as e:
+        logger.warning(f"Error checking Razorpay for order #{order.id}: {e}")
+    return False
+
+
 class CreatePaymentOrderView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -689,25 +751,26 @@ class CreatePaymentOrderView(APIView):
         shipping_address_id = request.data.get("shipping_address_id")
         billing_address_id = request.data.get("billing_address_id")
 
-        # Validate addresses
-        try:
-            shipping_address = Address.objects.get(id=shipping_address_id, user=request.user)
-        except Address.DoesNotExist:
-            return Response({"error": "Invalid shipping address"}, status=400)
+        # Validate addresses with fallback
+        shipping_address = None
+        if shipping_address_id:
+            shipping_address = Address.objects.filter(id=shipping_address_id, user=request.user).first()
+        if not shipping_address:
+            shipping_address = Address.objects.filter(user=request.user).order_by("-is_default", "-id").first()
+        if not shipping_address:
+            return Response({"error": "Please provide a valid shipping address"}, status=400)
 
+        billing_address = None
         if billing_address_id:
-            try:
-                billing_address = Address.objects.get(id=billing_address_id, user=request.user)
-            except Address.DoesNotExist:
-                return Response({"error": "Invalid billing address"}, status=400)
-        else:
-            billing_address = shipping_address  # fallback
+            billing_address = Address.objects.filter(id=billing_address_id, user=request.user).first()
+        if not billing_address:
+            billing_address = shipping_address
 
         # Get cart
         cart, _ = Cart.objects.get_or_create(user=request.user)
         items = cart.items.select_related("variant", "variant__product")
 
-        if not items:
+        if not items.exists():
             return Response({"error": "Cart is empty"}, status=400)
 
         total_amount = sum(item.total_price for item in items)
@@ -726,19 +789,41 @@ class CreatePaymentOrderView(APIView):
         except Exception as exc:  # pragma: no cover - network error handling
             return Response({"error": f"Failed to create payment order: {exc}"}, status=400)
 
-        # Save new payment transaction (previous "created" ones are preserved
-        # to prevent a race condition that could cause missed orders)
-        PaymentTransaction.objects.create(
-            user=request.user,
-            amount=total_amount,
-            razorpay_order_id=razorpay_order["id"],
-            status="created",
-            shipping_address_id=shipping_address.id,
-            billing_address_id=billing_address.id,
-        )
+        # IMMEDIATELY create Order in database so it shows on admin panel right away!
+        with transaction.atomic():
+            order = Order.objects.create(
+                user=request.user,
+                shipping_address=shipping_address,
+                billing_address=billing_address,
+                total_amount=total_amount,
+                status="pending",
+                payment_method="razorpay",
+                payment_status="unpaid",
+                transaction_id=razorpay_order["id"],
+            )
+
+            for item in items:
+                OrderItem.objects.create(
+                    order=order,
+                    variant=item.variant,
+                    quantity=item.quantity,
+                    unit_price=item.variant.price,
+                    total_price=item.total_price,
+                )
+
+            PaymentTransaction.objects.create(
+                user=request.user,
+                amount=total_amount,
+                razorpay_order_id=razorpay_order["id"],
+                status="created",
+                shipping_address_id=shipping_address.id,
+                billing_address_id=billing_address.id,
+                order=order,
+            )
 
         return Response({
             "order_id": razorpay_order["id"],
+            "db_order_id": order.id,
             "amount": total_amount,
             "currency": "INR",
             "key": settings.RAZORPAY_KEY_ID,
@@ -762,7 +847,7 @@ class VerifyPaymentView(APIView):
         if not all([razorpay_order_id, razorpay_payment_id, razorpay_signature]):
             return Response({"error": "Missing payment information"}, status=400)
 
-        # Idempotency: if an Order already exists for this payment, return it
+        # Idempotency: if an Order already has this payment transaction_id, return it
         existing_order = Order.objects.filter(transaction_id=razorpay_payment_id).first()
         if existing_order:
             return Response({
@@ -770,23 +855,17 @@ class VerifyPaymentView(APIView):
                 "order_id": existing_order.id
             }, status=200)
 
-        try:
-            tx = PaymentTransaction.objects.select_for_update().get(
-                razorpay_order_id=razorpay_order_id,
-                user=request.user,
-            )
-        except PaymentTransaction.DoesNotExist:
-            return Response({"error": "Transaction not found"}, status=404)
+        tx = PaymentTransaction.objects.select_for_update().filter(
+            razorpay_order_id=razorpay_order_id,
+            user=request.user,
+        ).first()
 
         # If already processed successfully, return existing order (idempotent)
-        if tx.status == "success" and tx.order:
+        if tx and tx.status == "success" and tx.order:
             return Response({
                 "message": "Payment already verified",
                 "order_id": tx.order.id
             }, status=200)
-
-        if tx.status not in ("created", "failed"):
-            return Response({"error": "Transaction already processed"}, status=400)
 
         client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
 
@@ -798,59 +877,58 @@ class VerifyPaymentView(APIView):
                 "razorpay_signature": razorpay_signature,
             })
         except Exception:
-            tx.status = "failed"
-            tx.save(update_fields=["status"])
+            if tx:
+                tx.status = "failed"
+                tx.save(update_fields=["status"])
             return Response({"error": "Payment verification failed"}, status=400)
 
-        # Fetch addresses gracefully (never fail order creation if address record was modified/deleted)
-        shipping_address = None
-        billing_address = None
-        if tx.shipping_address_id:
-            shipping_address = Address.objects.filter(id=tx.shipping_address_id, user=request.user).first()
-        if not shipping_address:
-            shipping_address = Address.objects.filter(user=request.user).order_by("-is_default", "-id").first()
+        # Find existing Order created at checkout initiation
+        order = tx.order if (tx and tx.order) else Order.objects.filter(transaction_id=razorpay_order_id).first()
 
-        if tx.billing_address_id:
-            billing_address = Address.objects.filter(id=tx.billing_address_id, user=request.user).first()
-        if not billing_address:
+        if order:
+            # Update the existing order to paid and confirmed
+            order.status = "confirmed"
+            order.payment_status = "paid"
+            order.transaction_id = razorpay_payment_id
+            order.save(update_fields=["status", "payment_status", "transaction_id"])
+
+            # Deduct stock for order items
+            for item in order.items.select_related("variant"):
+                item.variant.stock = max(0, item.variant.stock - item.quantity)
+                item.variant.save(update_fields=["stock"])
+        else:
+            # Fallback if no order was created yet
+            shipping_address = None
+            if tx and tx.shipping_address_id:
+                shipping_address = Address.objects.filter(id=tx.shipping_address_id, user=request.user).first()
+            if not shipping_address:
+                shipping_address = Address.objects.filter(user=request.user).order_by("-is_default", "-id").first()
+
             billing_address = shipping_address
 
-        # Create final Order
-        order = Order.objects.create(
-            user=request.user,
-            shipping_address=shipping_address,
-            billing_address=billing_address,
-            total_amount=tx.amount,
-            status="confirmed",
-            payment_method="razorpay",
-            payment_status="paid",
-            transaction_id=razorpay_payment_id,
-        )
-
-        # Convert cart items into OrderItems
-        cart, _ = Cart.objects.get_or_create(user=request.user)
-        items = cart.items.select_related("variant", "variant__product")
-
-        for item in items:
-            OrderItem.objects.create(
-                order=order,
-                variant=item.variant,
-                quantity=item.quantity,
-                unit_price=item.variant.price,
-                total_price=item.total_price,
+            order = Order.objects.create(
+                user=request.user,
+                shipping_address=shipping_address,
+                billing_address=billing_address,
+                total_amount=tx.amount if tx else 0,
+                status="confirmed",
+                payment_method="razorpay",
+                payment_status="paid",
+                transaction_id=razorpay_payment_id,
             )
-            item.variant.stock = max(0, item.variant.stock - item.quantity)
-            item.variant.save(update_fields=["stock"])
 
         # Clear cart
-        items.delete()
+        cart = Cart.objects.filter(user=request.user).first()
+        if cart:
+            cart.items.all().delete()
 
         # Update payment transaction
-        tx.order = order
-        tx.razorpay_payment_id = razorpay_payment_id
-        tx.razorpay_signature = razorpay_signature
-        tx.status = "success"
-        tx.save()
+        if tx:
+            tx.order = order
+            tx.razorpay_payment_id = razorpay_payment_id
+            tx.razorpay_signature = razorpay_signature
+            tx.status = "success"
+            tx.save()
 
         # Send confirmation email to user and owner
         order_items = OrderItem.objects.filter(order=order)
@@ -858,7 +936,6 @@ class VerifyPaymentView(APIView):
             send_order_success_email(request.user, order, order_items)
         except Exception as e:
             logger.error(f"Order confirmation email failed for {request.user.email}: {str(e)}")
-            # Email failure shouldn't block order completion
 
         return Response({
             "message": "Payment verified successfully",
@@ -872,6 +949,15 @@ class OrderListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        # Auto-sync any recent pending razorpay orders for this user
+        pending_orders = Order.objects.filter(
+            user=request.user,
+            payment_status="unpaid",
+            payment_method="razorpay",
+        ).order_by("-created_at")[:5]
+        for pending_order in pending_orders:
+            sync_order_razorpay_status(pending_order)
+
         orders = Order.objects.filter(user=request.user).order_by("-created_at")
         serializer = OrderListSerializer(orders, many=True, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -981,13 +1067,36 @@ class RazorpayWebhookView(APIView):
             )
             return Response({"status": "no_transaction"}, status=200)
 
-        if tx.order_id:
-            return Response({"status": "already_linked"}, status=200)
-
         with transaction.atomic():
             tx = PaymentTransaction.objects.select_for_update().get(pk=tx.pk)
-            if tx.order_id:
-                return Response({"status": "already_linked"}, status=200)
+            order = tx.order or Order.objects.filter(transaction_id=razorpay_order_id).first()
+
+            if order:
+                # Update existing order
+                order.status = "confirmed"
+                order.payment_status = "paid"
+                order.transaction_id = razorpay_payment_id
+                order.save(update_fields=["status", "payment_status", "transaction_id"])
+
+                for item in order.items.select_related("variant"):
+                    item.variant.stock = max(0, item.variant.stock - item.quantity)
+                    item.variant.save(update_fields=["stock"])
+
+                cart = Cart.objects.filter(user=tx.user).first()
+                if cart:
+                    cart.items.all().delete()
+
+                tx.order = order
+                tx.razorpay_payment_id = razorpay_payment_id
+                tx.status = "success"
+                tx.save()
+
+                try:
+                    send_order_success_email(tx.user, order, order.items.all())
+                except Exception:
+                    pass
+
+                return Response({"status": "order_confirmed", "order_id": order.id}, status=200)
 
             # Resolve addresses
             shipping_address = None
