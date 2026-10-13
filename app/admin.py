@@ -252,6 +252,7 @@ class OrderAdmin(admin.ModelAdmin):
     list_filter = ("status", "payment_status", "payment_method", "created_at")
     search_fields = (
         "id", "user__username", "user__email", "transaction_id",
+        "paymenttransaction__razorpay_order_id", "paymenttransaction__razorpay_payment_id",
         "items__variant__product__title", "items__variant__sku"
     )
     autocomplete_fields = ("user", "shipping_address")
@@ -278,13 +279,143 @@ class OrderAdmin(admin.ModelAdmin):
 
     def razorpay_payment_id(self, obj):
         tx = PaymentTransaction.objects.filter(order=obj).order_by("-created_at").first()
-        return tx.razorpay_payment_id if tx else "-"
+        if tx and tx.razorpay_payment_id:
+            return tx.razorpay_payment_id
+        return obj.transaction_id or "-"
     razorpay_payment_id.short_description = "RZP Payment ID"
 
     def razorpay_order_id(self, obj):
         tx = PaymentTransaction.objects.filter(order=obj).order_by("-created_at").first()
         return tx.razorpay_order_id if tx else "-"
     razorpay_order_id.short_description = "RZP Order ID"
+
+
+
+
+
+# ---------------- Payment Transactions (for auditing missed orders) ----------------
+
+class OrphanedTransactionFilter(admin.SimpleListFilter):
+    title = "Order linked"
+    parameter_name = "has_order"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("yes", "Has Order"),
+            ("no", "⚠ Missing Order (Orphaned)"),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == "yes":
+            return queryset.filter(order__isnull=False)
+        if self.value() == "no":
+            return queryset.filter(order__isnull=True)
+
+
+@admin.register(PaymentTransaction, site=ecommerce_admin_site)
+class PaymentTransactionAdmin(admin.ModelAdmin):
+    list_display = (
+        "id", "user", "status", "amount",
+        "razorpay_order_id", "razorpay_payment_id",
+        "order_link", "created_at",
+    )
+    list_filter = ("status", OrphanedTransactionFilter, "created_at")
+    search_fields = (
+        "razorpay_order_id", "razorpay_payment_id",
+        "user__username", "user__email",
+    )
+    autocomplete_fields = ("user", "order")
+    readonly_fields = ("created_at",)
+    ordering = ("-created_at",)
+    list_per_page = 25
+    actions = ["recreate_missing_orders"]
+
+    def order_link(self, obj):
+        if obj.order:
+            return format_html(
+                '<a href="../order/{}/change/">Order #{}</a>',
+                obj.order.id,
+                obj.order.id,
+            )
+        return format_html(
+            '<span style="color:red;font-weight:bold">\u26a0 NO ORDER</span>'
+        )
+    order_link.short_description = "Order"
+
+    def recreate_missing_orders(self, request, queryset):
+        recovered = 0
+        already_linked = 0
+        for tx in queryset:
+            if tx.order_id:
+                already_linked += 1
+                continue
+            if tx.status not in ("success", "created"):
+                continue
+
+            # Fallback shipping & billing address
+            shipping_address = None
+            if tx.shipping_address_id:
+                shipping_address = Address.objects.filter(id=tx.shipping_address_id, user=tx.user).first()
+            if not shipping_address:
+                shipping_address = Address.objects.filter(user=tx.user).order_by("-is_default", "-id").first()
+
+            billing_address = None
+            if tx.billing_address_id:
+                billing_address = Address.objects.filter(id=tx.billing_address_id, user=tx.user).first()
+            if not billing_address:
+                billing_address = shipping_address
+
+            # Check if order with this transaction_id already exists
+            order = None
+            if tx.razorpay_payment_id:
+                order = Order.objects.filter(transaction_id=tx.razorpay_payment_id).first()
+
+            if not order:
+                order = Order.objects.create(
+                    user=tx.user,
+                    shipping_address=shipping_address,
+                    billing_address=billing_address,
+                    total_amount=tx.amount,
+                    status="confirmed",
+                    payment_method="razorpay",
+                    payment_status="paid" if tx.status == "success" else "unpaid",
+                    transaction_id=tx.razorpay_payment_id or tx.razorpay_order_id,
+                )
+                cart = Cart.objects.filter(user=tx.user).first()
+                if cart and cart.items.exists():
+                    for item in cart.items.select_related("variant"):
+                        OrderItem.objects.create(
+                            order=order,
+                            variant=item.variant,
+                            quantity=item.quantity,
+                            unit_price=item.variant.price,
+                            total_price=item.total_price,
+                        )
+
+            tx.order = order
+            if tx.status != "success" and tx.razorpay_payment_id:
+                tx.status = "success"
+            tx.save(update_fields=["order", "status"])
+            recovered += 1
+
+        self.message_user(
+            request,
+            f"Successfully recovered {recovered} order(s). ({already_linked} were already linked)"
+        )
+    recreate_missing_orders.short_description = "⚡ Recreate Missing Order(s) for selected transactions"
+
+
+# Also register on default admin site so all orders and ecommerce models are accessible on both /admin/ and /ecommerce/admin/
+for _model, _admin_cls in [
+    (Category, CategoryAdmin),
+    (Product, ProductAdmin),
+    (ProductVariant, ProductVariantAdmin),
+    (Address, AddressAdmin),
+    (Order, OrderAdmin),
+    (PaymentTransaction, PaymentTransactionAdmin),
+]:
+    if not admin.site.is_registered(_model):
+        admin.site.register(_model, _admin_cls)
 
 
 @admin.register(Eventhall)

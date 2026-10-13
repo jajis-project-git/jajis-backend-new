@@ -53,6 +53,7 @@ urlpatterns = [
     # Payment / Order Creation + Verification
     path("payment/create/", views.CreatePaymentOrderView.as_view(), name="create_payment"),
     path("payment/verify/", views.VerifyPaymentView.as_view(), name="verify_payment"),
+    path("payment/webhook/", views.RazorpayWebhookView.as_view(), name="razorpay_webhook"),
 
     # Orders
     path("orders/", views.OrderListView.as_view(), name="orders"),
