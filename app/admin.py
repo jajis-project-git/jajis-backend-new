@@ -172,6 +172,21 @@ class ProductAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return True
 
+    def save_model(self, request, obj, form, change):
+        if change:
+            if form.changed_data:
+                changed_fields = set(form.changed_data)
+                changed_fields.add("updated_at")
+                valid_fields = {f.name for f in obj._meta.fields}
+                obj.save(update_fields=list(changed_fields & valid_fields))
+            else:
+                # When editing inlines (like product variant prices), the product form
+                # itself has not changed. Skipping obj.save() prevents re-saving and
+                # re-compressing unchanged images that could exceed max_length.
+                pass
+        else:
+            super().save_model(request, obj, form, change)
+
 
 @admin.register(ProductVariant, site=ecommerce_admin_site)
 class ProductVariantAdmin(admin.ModelAdmin):

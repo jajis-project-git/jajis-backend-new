@@ -140,18 +140,22 @@ class Product(models.Model):
     def __str__(self):
         return self.title
     def save(self, *args, **kwargs):
+        update_fields = kwargs.get("update_fields")
 
-        if self.image1:
-            self.image1 = compress_image(self.image1)
+        for img_field_name in ("image1", "image2", "image3", "image4"):
+            if update_fields is not None and img_field_name not in update_fields:
+                continue
 
-        if self.image2:
-            self.image2 = compress_image(self.image2)
-
-        if self.image3:
-            self.image3 = compress_image(self.image3)
-
-        if self.image4:
-            self.image4 = compress_image(self.image4)
+            img = getattr(self, img_field_name, None)
+            # Only compress newly uploaded images that haven't been saved to storage yet
+            if img and hasattr(img, "_committed") and not img._committed:
+                try:
+                    import os
+                    compressed = compress_image(img)
+                    compressed.name = os.path.basename(img.name)
+                    setattr(self, img_field_name, compressed)
+                except Exception:
+                    pass
 
         super().save(*args, **kwargs)
 
@@ -382,4 +386,4 @@ class FranchiseEnquiry(models.Model):
     def __str__(self):
         return f"{self.full_name} - {self.preferred_city} ({self.created_at.strftime('%Y-%m-%d') if self.created_at else ''})"
 
-
+
